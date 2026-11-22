@@ -1,0 +1,410 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'thejashwinin61@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        isBootstrappedAdmin()
+        || exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+      );
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'role', 'emailNotificationsEnabled', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'email', 'role', 'emailNotificationsEnabled', 'createdAt', 'updatedAt'])
+        && data.uid == userId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.role in ['visitor', 'staff']
+        && data.emailNotificationsEnabled is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStaffMember(data, staffUid) {
+      return data.keys().hasAll(['uid', 'email', 'name', 'grantedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'name', 'grantedBy', 'createdAt'])
+        && data.uid == staffUid
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && isValidId(data.grantedBy)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidServiceLocation(data, serviceId) {
+      return data.keys().hasAll(['id', 'name', 'facility', 'locationDetail', 'prefix', 'avgServiceMinutes', 'counters', 'isPaused', 'nextSequence', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'name', 'facility', 'locationDetail', 'prefix', 'avgServiceMinutes', 'counters', 'isPaused', 'nextSequence', 'updatedAt'])
+        && data.id == serviceId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.facility is string && data.facility.size() >= 1 && data.facility.size() <= 100
+        && data.locationDetail is string && data.locationDetail.size() >= 1 && data.locationDetail.size() <= 120
+        && data.prefix is string && data.prefix.size() >= 1 && data.prefix.size() <= 4
+        && data.avgServiceMinutes is int && data.avgServiceMinutes >= 1 && data.avgServiceMinutes <= 180
+        && data.counters is list && data.counters.size() >= 1 && data.counters.size() <= 10
+        && data.counters[0] is string && data.counters[0].size() <= 40
+        && data.isPaused is bool
+        && data.nextSequence is int && data.nextSequence >= 1 && data.nextSequence <= 999999
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTicket(data, ticketId) {
+      return data.keys().hasAll(['id', 'ticketNumber', 'serviceId', 'visitorName', 'userId', 'channel', 'status', 'counter', 'createdAt', 'queueOrderAt', 'updatedAt', 'calledAt', 'completedAt'])
+        && data.keys().hasOnly(['id', 'ticketNumber', 'serviceId', 'visitorName', 'userId', 'channel', 'status', 'counter', 'reason', 'createdAt', 'queueOrderAt', 'updatedAt', 'calledAt', 'completedAt'])
+        && data.id == ticketId
+        && data.ticketNumber is string && data.ticketNumber.size() >= 2 && data.ticketNumber.size() <= 16
+        && isValidId(data.serviceId)
+        && data.visitorName is string && data.visitorName.size() >= 1 && data.visitorName.size() <= 80
+        && (data.userId == null || isValidId(data.userId))
+        && data.channel in ['digital', 'walk-in']
+        && data.status in ['waiting', 'called', 'serving', 'completed', 'deferred', 'cancelled']
+        && (data.counter == null || (data.counter is string && data.counter.size() >= 1 && data.counter.size() <= 40))
+        && (!('reason' in data) || data.reason == null || (data.reason is string && data.reason.size() <= 300))
+        && data.createdAt is timestamp
+        && data.queueOrderAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.calledAt == null || data.calledAt is timestamp)
+        && (data.completedAt == null || data.completedAt is timestamp);
+    }
+
+    function isValidQueueFeedItem(data, ticketId) {
+      return data.keys().hasAll(['id', 'ticketNumber', 'serviceId', 'status', 'counter', 'createdAt', 'queueOrderAt', 'updatedAt', 'calledAt', 'completedAt'])
+        && data.keys().hasOnly(['id', 'ticketNumber', 'serviceId', 'status', 'counter', 'createdAt', 'queueOrderAt', 'updatedAt', 'calledAt', 'completedAt'])
+        && data.id == ticketId
+        && data.ticketNumber is string && data.ticketNumber.size() >= 2 && data.ticketNumber.size() <= 16
+        && isValidId(data.serviceId)
+        && data.status in ['waiting', 'called', 'serving', 'completed', 'deferred', 'cancelled']
+        && (data.counter == null || (data.counter is string && data.counter.size() >= 1 && data.counter.size() <= 40))
+        && data.createdAt is timestamp
+        && data.queueOrderAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.calledAt == null || data.calledAt is timestamp)
+        && (data.completedAt == null || data.completedAt is timestamp);
+    }
+
+    function isValidAnnouncement(data, announcementId) {
+      return data.keys().hasAll(['id', 'serviceId', 'message', 'authorUid', 'createdAt'])
+        && data.keys().hasOnly(['id', 'serviceId', 'message', 'authorUid', 'createdAt', 'expiresAt'])
+        && data.id == announcementId
+        && isValidId(data.serviceId)
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 240
+        && isValidId(data.authorUid)
+        && data.createdAt is timestamp
+        && (!('expiresAt' in data) || data.expiresAt == null || data.expiresAt is timestamp);
+    }
+
+    function isValidNotification(data, notificationId) {
+      return data.keys().hasAll(['id', 'userId', 'ticketId', 'ticketNumber', 'type', 'title', 'body', 'read', 'emailStatus', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'ticketId', 'ticketNumber', 'type', 'title', 'body', 'read', 'emailStatus', 'createdAt'])
+        && data.id == notificationId
+        && isValidId(data.userId)
+        && (data.ticketId == null || isValidId(data.ticketId))
+        && (data.ticketNumber == null || (data.ticketNumber is string && data.ticketNumber.size() <= 16))
+        && data.type in ['ticket_joined', 'ticket_called', 'counter_assigned', 'ticket_deferred', 'ticket_completed', 'queue_delay', 'announcement']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.body is string && data.body.size() >= 1 && data.body.size() <= 320
+        && data.read is bool
+        && data.emailStatus in ['provider_not_configured', 'disabled']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSupportThread(data, threadId) {
+      return data.keys().hasAll(['id', 'userId', 'visitorName', 'serviceId', 'subject', 'status', 'lastMessageText', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'userId', 'visitorName', 'serviceId', 'subject', 'status', 'lastMessageText', 'createdAt', 'updatedAt'])
+        && data.id == threadId
+        && isValidId(data.userId)
+        && data.visitorName is string && data.visitorName.size() >= 1 && data.visitorName.size() <= 80
+        && (data.serviceId == null || isValidId(data.serviceId))
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.status in ['open', 'resolved']
+        && data.lastMessageText is string && data.lastMessageText.size() >= 1 && data.lastMessageText.size() <= 500
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSupportMessage(data, messageId) {
+      return data.keys().hasAll(['id', 'threadOwnerUid', 'senderUid', 'senderRole', 'senderName', 'text', 'createdAt'])
+        && data.keys().hasOnly(['id', 'threadOwnerUid', 'senderUid', 'senderRole', 'senderName', 'text', 'createdAt'])
+        && data.id == messageId
+        && isValidId(data.threadOwnerUid)
+        && isValidId(data.senderUid)
+        && data.senderRole in ['visitor', 'staff']
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80
+        && data.text is string && data.text.size() >= 1 && data.text.size() <= 1000
+        && data.createdAt is timestamp;
+    }
+
+    // 4. Collection Rules
+
+    // User Profiles (Strict PII Isolation: Owner or Staff only)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isStaff());
+      allow list: if isStaff();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && (incoming().role == 'visitor' || (incoming().role == 'staff' && isStaff()))
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'emailNotificationsEnabled', 'updatedAt']))
+          || (isStaff()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'updatedAt']))
+        );
+      allow delete: if false;
+    }
+
+    // Provisioned Staff Directory
+    match /staff/{staffUid} {
+      allow get: if isValidId(staffUid) && (isOwner(staffUid) || isStaff());
+      allow list: if isStaff();
+      allow create: if isValidId(staffUid)
+        && isStaff()
+        && isValidStaffMember(incoming(), staffUid)
+        && incoming().grantedBy == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(staffUid) && isStaff();
+    }
+
+    // Service Locations
+    match /services/{serviceId} {
+      allow get, list: if true;
+      allow create: if isValidId(serviceId)
+        && isStaff()
+        && isValidServiceLocation(incoming(), serviceId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(serviceId)
+        && isSignedIn()
+        && isValidServiceLocation(incoming(), serviceId)
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time
+        && (
+          isStaff()
+          || (!existing().isPaused
+            && incoming().diff(existing()).affectedKeys().hasOnly(['nextSequence', 'updatedAt'])
+            && incoming().nextSequence == existing().nextSequence + 1)
+        );
+      allow delete: if false;
+    }
+
+    // Private Full Tickets (Owner or Staff only)
+    match /tickets/{ticketId} {
+      allow get: if isValidId(ticketId) && (isStaff() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isStaff() || (isSignedIn() && existing().userId == request.auth.uid);
+
+      allow create: if isValidId(ticketId)
+        && isSignedIn()
+        && isValidTicket(incoming(), ticketId)
+        && exists(/databases/$(database)/documents/services/$(incoming().serviceId))
+        && existsAfter(/databases/$(database)/documents/queueFeed/$(ticketId))
+        && incoming().createdAt == request.time
+        && incoming().queueOrderAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isStaff() && incoming().channel in ['digital', 'walk-in'])
+          || (incoming().userId == request.auth.uid
+            && incoming().channel == 'digital'
+            && incoming().status == 'waiting'
+            && incoming().counter == null
+            && incoming().calledAt == null
+            && incoming().completedAt == null
+            && !get(/databases/$(database)/documents/services/$(incoming().serviceId)).data.isPaused)
+        );
+
+      allow update: if isValidId(ticketId)
+        && isSignedIn()
+        && isValidTicket(incoming(), ticketId)
+        && incoming().id == existing().id
+        && incoming().serviceId == existing().serviceId
+        && incoming().ticketNumber == existing().ticketNumber
+        && incoming().channel == existing().channel
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/queueFeed/$(ticketId))
+        && (
+          (isStaff()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'counter', 'calledAt', 'completedAt', 'queueOrderAt', 'updatedAt']))
+          || (existing().userId == request.auth.uid
+            && existing().status == 'waiting'
+            && incoming().status == 'cancelled'
+            && incoming().counter == null
+            && incoming().queueOrderAt == existing().queueOrderAt
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'counter', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(ticketId) && isStaff();
+    }
+
+    // Zero-PII Public Queue Feed (For TV Displays and Position Math)
+    match /queueFeed/{ticketId} {
+      allow get, list: if true;
+
+      allow create: if isValidId(ticketId)
+        && isSignedIn()
+        && isValidQueueFeedItem(incoming(), ticketId)
+        && existsAfter(/databases/$(database)/documents/tickets/$(ticketId))
+        && incoming().createdAt == request.time
+        && incoming().queueOrderAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isStaff()
+          || (incoming().status == 'waiting'
+            && incoming().counter == null
+            && incoming().calledAt == null
+            && incoming().completedAt == null)
+        );
+
+      allow update: if isValidId(ticketId)
+        && isSignedIn()
+        && isValidQueueFeedItem(incoming(), ticketId)
+        && incoming().id == existing().id
+        && incoming().serviceId == existing().serviceId
+        && incoming().ticketNumber == existing().ticketNumber
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/tickets/$(ticketId))
+        && (
+          (isStaff()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'counter', 'calledAt', 'completedAt', 'queueOrderAt', 'updatedAt']))
+          || (get(/databases/$(database)/documents/tickets/$(ticketId)).data.userId == request.auth.uid
+            && existing().status == 'waiting'
+            && incoming().status == 'cancelled'
+            && incoming().counter == null
+            && incoming().queueOrderAt == existing().queueOrderAt
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'counter', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(ticketId) && isStaff();
+    }
+
+    // Staff Announcements
+    match /announcements/{announcementId} {
+      allow get, list: if true;
+      allow create: if isValidId(announcementId)
+        && isStaff()
+        && isValidAnnouncement(incoming(), announcementId)
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(announcementId) && isStaff();
+    }
+
+    // User-Scoped Personal Notifications
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && (isStaff() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isStaff() || (isSignedIn() && existing().userId == request.auth.uid);
+
+      allow create: if isValidId(notificationId)
+        && isSignedIn()
+        && isValidNotification(incoming(), notificationId)
+        && incoming().createdAt == request.time
+        && (isStaff() || incoming().userId == request.auth.uid);
+
+      allow update: if isValidId(notificationId)
+        && isSignedIn()
+        && isValidNotification(incoming(), notificationId)
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && existing().userId == request.auth.uid
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+
+      allow delete: if isValidId(notificationId) && (isStaff() || (isSignedIn() && existing().userId == request.auth.uid));
+    }
+
+    // Support Conversations (Visitor Owner or Staff only)
+    match /supportThreads/{threadId} {
+      allow get: if isValidId(threadId) && (isStaff() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isStaff() || (isSignedIn() && existing().userId == request.auth.uid);
+
+      allow create: if isValidId(threadId)
+        && isSignedIn()
+        && isValidSupportThread(incoming(), threadId)
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(threadId)
+        && isSignedIn()
+        && isValidSupportThread(incoming(), threadId)
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isStaff()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'lastMessageText', 'updatedAt']))
+          || (existing().userId == request.auth.uid
+            && existing().status == 'open'
+            && incoming().status == 'open'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['lastMessageText', 'updatedAt']))
+        );
+
+      allow delete: if false;
+
+      // Subcollection: Messages (Zero get() cost on allow list via threadOwnerUid)
+      match /messages/{messageId} {
+        allow get: if isValidId(threadId) && isValidId(messageId)
+          && (isStaff() || (isSignedIn() && existing().threadOwnerUid == request.auth.uid));
+        allow list: if isValidId(threadId)
+          && (isStaff() || (isSignedIn() && existing().threadOwnerUid == request.auth.uid));
+
+        allow create: if isValidId(threadId) && isValidId(messageId)
+          && isSignedIn()
+          && isValidSupportMessage(incoming(), messageId)
+          && incoming().senderUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/supportThreads/$(threadId))
+          && incoming().threadOwnerUid == get(/databases/$(database)/documents/supportThreads/$(threadId)).data.userId
+          && (
+            (isStaff() && incoming().senderRole == 'staff')
+            || (incoming().threadOwnerUid == request.auth.uid && incoming().senderRole == 'visitor')
+          );
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

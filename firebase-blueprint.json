@@ -1,0 +1,464 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user account profile and role metadata.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "role": {
+          "type": "string",
+          "enum": ["visitor", "staff"]
+        },
+        "emailNotificationsEnabled": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "name", "email", "role", "emailNotificationsEnabled", "createdAt", "updatedAt"]
+    },
+    "StaffMember": {
+      "title": "StaffMember",
+      "description": "Authorized staff access record provisioned separately from visitor registration.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "grantedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "name", "grantedBy", "createdAt"]
+    },
+    "ServiceLocation": {
+      "title": "ServiceLocation",
+      "description": "Real-world service desk or counter location managing a unified queue.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "facility": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "locationDetail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "prefix": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4
+        },
+        "avgServiceMinutes": {
+          "type": "number"
+        },
+        "counters": {
+          "type": "array"
+        },
+        "isPaused": {
+          "type": "boolean"
+        },
+        "nextSequence": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name", "facility", "locationDetail", "prefix", "avgServiceMinutes", "counters", "isPaused", "nextSequence", "updatedAt"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Private queue ticket owned by an authenticated visitor or issued as a walk-in by staff.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ticketNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 16
+        },
+        "serviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "visitorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "userId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "channel": {
+          "type": "string",
+          "enum": ["digital", "walk-in"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "called", "serving", "completed", "deferred", "cancelled"]
+        },
+        "counter": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "queueOrderAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "calledAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ticketNumber", "serviceId", "visitorName", "channel", "status", "createdAt", "queueOrderAt", "updatedAt"]
+    },
+    "QueueFeedItem": {
+      "title": "QueueFeedItem",
+      "description": "Non-PII public projection of queue tickets for waiting-room display and position calculation.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ticketNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 16
+        },
+        "serviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "called", "serving", "completed", "deferred", "cancelled"]
+        },
+        "counter": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "queueOrderAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "calledAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ticketNumber", "serviceId", "status", "createdAt", "queueOrderAt", "updatedAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Broadcast announcement issued by authorized staff for a service or all locations.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "serviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "serviceId", "message", "authorUid", "createdAt"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "User-scoped notification for ticket callouts, counter assignment, delays, and announcements.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ticketId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "ticketNumber": {
+          "type": "string",
+          "maxLength": 16
+        },
+        "type": {
+          "type": "string",
+          "enum": ["ticket_joined", "ticket_called", "counter_assigned", "ticket_deferred", "ticket_completed", "queue_delay", "announcement"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320
+        },
+        "read": {
+          "type": "boolean"
+        },
+        "emailStatus": {
+          "type": "string",
+          "enum": ["provider_not_configured", "disabled"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "userId", "type", "title", "body", "read", "emailStatus", "createdAt"]
+    },
+    "SupportThread": {
+      "title": "SupportThread",
+      "description": "Visitor-to-staff support conversation thread scoped to the owning visitor and authorized staff.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "visitorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "serviceId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "resolved"]
+        },
+        "lastMessageText": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "userId", "visitorName", "subject", "status", "lastMessageText", "createdAt", "updatedAt"]
+    },
+    "SupportMessage": {
+      "title": "SupportMessage",
+      "description": "Message inside a support conversation thread.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "threadOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "senderUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "senderRole": {
+          "type": "string",
+          "enum": ["visitor", "staff"]
+        },
+        "senderName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "threadOwnerUid", "senderUid", "senderRole", "senderName", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles containing role and PII; readable only by owner or staff."
+    },
+    "/staff/{staffUid}": {
+      "schema": { "$ref": "#/entities/StaffMember" },
+      "description": "Authorized staff directory managed exclusively by existing staff."
+    },
+    "/services/{serviceId}": {
+      "schema": { "$ref": "#/entities/ServiceLocation" },
+      "description": "Publicly readable service locations and queue sequence counters."
+    },
+    "/tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/Ticket" },
+      "description": "Full ticket records; strictly scoped to owning user or authorized staff."
+    },
+    "/queueFeed/{ticketId}": {
+      "schema": { "$ref": "#/entities/QueueFeedItem" },
+      "description": "Zero-PII public queue feed for TV displays and position calculation."
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Staff broadcast announcements readable by visitors and displays."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/NotificationItem" },
+      "description": "User-scoped notifications readable only by the target visitor or staff."
+    },
+    "/supportThreads/{threadId}": {
+      "schema": { "$ref": "#/entities/SupportThread" },
+      "description": "Support conversations scoped to the owning visitor and staff."
+    },
+    "/supportThreads/{threadId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/SupportMessage" },
+      "description": "Individual messages inside a support thread."
+    }
+  }
+}

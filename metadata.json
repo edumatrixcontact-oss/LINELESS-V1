@@ -1,0 +1,6 @@
+{
+  "name": "LINELESS",
+  "description": "LINELESS — Bank branch queue and desk messaging platform. Join your branch queue online or via branch QR, check document requirements with Queue AI, and communicate directly with bank staff.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
